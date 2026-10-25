@@ -1,0 +1,99 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["**.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    env:
+      APP_VERSION_CODE: ${{ github.run_number }}
+      APP_VERSION_NAME: 1.0.${{ github.run_number }}
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Android SDK مثبت مسبقاً على ubuntu-24.04 (ANDROID_HOME)
+      - name: Check Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms" || true
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # الإبقاء على نفس مفتاح التوقيع بين البنيات حتى يمكن تحديث التطبيق دون حذفه
+      - name: Restore debug keystore
+        uses: actions/cache@v6
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_OPENCELLID_KEY: ${{ secrets.VITE_OPENCELLID_KEY }}
+      - run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      # (اختياري) نسخة release موقّعة إذا أُضيفت أسرار التوقيع في إعدادات المستودع
+      - name: Build signed release APK
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Collect APKs
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/shabka.apk
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk out/shabka-release.apk
+          fi
+          ls -la out
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shabka-apk-${{ github.run_number }}
+          path: out/*.apk
+
+      # نشر الـ APK كإصدار (Release) عند الدفع إلى main ليسهل تنزيله من الجوال
+      - name: Publish release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: شبكة ${{ env.APP_VERSION_NAME }}
+          body: |
+            ملف APK لتطبيق خريطة تغطية شبكات اليمن (الموقع الافتراضي: تعز).
+            نزّل `shabka.apk` وثبّته على جوال أندرويد (فعّل "التثبيت من مصادر غير معروفة").
+          files: out/*.apk

@@ -1,5 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DataSource } from "../lib/towers";
+import { clearTileCache, getTileCacheCount, tileCacheSupported } from "../lib/tileCache";
 
 interface Props {
   open: boolean;
@@ -17,6 +18,11 @@ export default function SettingsModal({ open, source, apiKey, csvInfo, onClose, 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [tileCount, setTileCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (open && tileCacheSupported) getTileCacheCount().then(setTileCount).catch(() => {});
+  }, [open]);
 
   if (!open) return null;
 
@@ -128,6 +134,32 @@ export default function SettingsModal({ open, source, apiKey, csvInfo, onClose, 
             </p>
           </div>
         )}
+
+        <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+          <div className="mb-1 font-bold text-slate-700">📴 العمل بدون إنترنت</div>
+          <p>
+            الخرائط التي تتصفحها تُحفظ تلقائياً على جهازك وتظهر عند انقطاع الإنترنت. تصفّح المناطق التي تهمك (مثل تعز)
+            بمستويات التكبير المطلوبة وأنت متصل مرة واحدة.
+          </p>
+          {tileCacheSupported ? (
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span>
+                البلاطات المحفوظة: <b>{tileCount === null ? "…" : tileCount.toLocaleString("ar")}</b>
+              </span>
+              <button
+                onClick={async () => {
+                  await clearTileCache();
+                  setTileCount(0);
+                }}
+                className="rounded-lg bg-white px-2.5 py-1 font-semibold text-red-600 shadow-sm hover:bg-red-50"
+              >
+                مسح الخرائط المحفوظة
+              </button>
+            </div>
+          ) : (
+            <p className="mt-2 text-amber-700">المتصفح لا يدعم حفظ الخرائط محلياً.</p>
+          )}
+        </div>
 
         <div className="mt-5 flex gap-2">
           <button

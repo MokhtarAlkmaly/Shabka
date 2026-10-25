@@ -6,7 +6,6 @@ import {
   MapContainer,
   Marker,
   Popup,
-  TileLayer,
   useMap,
   useMapEvents,
 } from "react-leaflet";
@@ -14,6 +13,7 @@ import { OPERATOR_BY_ID, TECH_INFO, type Tech } from "../data/operators";
 import { formatDistance, haversine, type LatLon } from "../lib/geo";
 import { effectiveRange } from "../lib/coverage";
 import type { Tower } from "../lib/towers";
+import { CachedTileLayer } from "../lib/tileCache";
 
 export type BaseLayer = "streets" | "satellite" | "light";
 
@@ -91,6 +91,19 @@ function MapEvents({
   return null;
 }
 
+/** طبقة خريطة تحفظ البلاطات محلياً لتعمل بدون إنترنت */
+function OfflineTileLayer({ id, url, attribution }: { id: string; url: string; attribution: string }) {
+  const map = useMap();
+  useEffect(() => {
+    const layer = new CachedTileLayer(url, { cacheId: id, attribution, maxZoom: 19 });
+    layer.addTo(map);
+    return () => {
+      layer.remove();
+    };
+  }, [map, id, url, attribution]);
+  return null;
+}
+
 function AutoResize() {
   const map = useMap();
   useEffect(() => {
@@ -140,7 +153,7 @@ export default function MapView(props: Props) {
   return (
     <div dir="ltr" className="h-full w-full">
       <MapContainer center={initialCenter} zoom={14} className="h-full w-full" zoomControl={false}>
-        <TileLayer key={baseLayer} url={tile.url} attribution={tile.attribution} maxZoom={19} />
+        <OfflineTileLayer id={baseLayer} url={tile.url} attribution={tile.attribution} />
         <MapEvents onClick={onMapClick} onMoveEnd={onMoveEnd} />
         <FlyTo target={flyTarget} />
         <AutoResize />
