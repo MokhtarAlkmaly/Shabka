@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MapView, { type BaseLayer } from "./components/MapView";
 import CoveragePanel from "./components/CoveragePanel";
+import TaizCoverage from "./components/TaizCoverage";
+import { TAIZ_OPERATORS } from "./data/taiz";
 import SettingsModal from "./components/SettingsModal";
 import UpdateBanner from "./components/UpdateBanner";
 import {
@@ -61,7 +63,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ text: string; type: "info" | "error" } | null>(null);
 
-  const [enabledOps, setEnabledOps] = useState<Set<OperatorId>>(new Set(OPERATORS.map((o) => o.id)));
+  const [enabledOps, setEnabledOps] = useState<Set<OperatorId>>(new Set(TAIZ_OPERATORS));
   const [enabledTechs, setEnabledTechs] = useState<Set<Tech>>(new Set(TECHS));
   const [circleTech, setCircleTech] = useState<Tech | null>("4G");
   const [baseLayer, setBaseLayer] = useState<BaseLayer>("streets");
@@ -395,6 +397,21 @@ export default function App() {
                 })}
               </div>
             </div>
+
+            <TaizCoverage
+              source={source}
+              towers={source === "csv" ? csvTowers : allTowers}
+              loading={loading}
+              onSelect={(place) => {
+                manualPoint.current = true;
+                setAnalysisPoint(place.center);
+                setMapCenter(place.center);
+                setFetchCenter(place.center);
+                setEnabledOps(new Set(TAIZ_OPERATORS));
+                setSelectedTowerId(null);
+                setFlyTarget({ pos: place.center, zoom: 15, nonce: Date.now() });
+              }}
+            />
 
             <CoveragePanel
               coverage={coverage}
