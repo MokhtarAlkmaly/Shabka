@@ -72,13 +72,16 @@ jobs:
           export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
           ./gradlew assembleRelease --no-daemon
 
-      - name: Collect APKs
+      - name: Collect APKs and web bundle
         run: |
           mkdir -p out
           cp android/app/build/outputs/apk/debug/app-debug.apk out/shabka.apk
           if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
             cp android/app/build/outputs/apk/release/app-release.apk out/shabka-release.apk
           fi
+          # حزمة الواجهة لتحديثها مباشرة داخل التطبيق (بدون تثبيت APK جديد)
+          (cd dist && zip -r -q ../out/bundle.zip .)
+          cp dist/version.json out/version.json
           ls -la out
 
       - uses: actions/upload-artifact@v7
@@ -86,14 +89,33 @@ jobs:
           name: shabka-apk-${{ github.run_number }}
           path: out/*.apk
 
-      # نشر الـ APK كإصدار (Release) عند الدفع إلى main ليسهل تنزيله من الجوال
+      - name: Prepare release notes
+        if: github.ref == 'refs/heads/main'
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          META=$(jq -c '{build, nativeHash}' dist/version.json)
+          {
+            echo "${COMMIT_MSG:-تحديث جديد}"
+            echo
+            echo "---"
+            echo "نزّل \`shabka.apk\` وثبّته على جوال أندرويد (فعّل «التثبيت من مصادر غير معروفة»)."
+            echo "التطبيق المثبت يكتشف هذا الإصدار تلقائياً ويعرض إشعار تحديث."
+            echo
+            echo "<!-- shabka-meta $META -->"
+          } > out/release-notes.md
+          cat out/release-notes.md
+
+      # نشر الإصدار عند الدفع إلى main — التطبيق يقرأ آخر إصدار لعرض إشعار التحديث
       - name: Publish release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: شبكة ${{ env.APP_VERSION_NAME }}
-          body: |
-            ملف APK لتطبيق خريطة تغطية شبكات اليمن (الموقع الافتراضي: تعز).
-            نزّل `shabka.apk` وثبّته على جوال أندرويد (فعّل "التثبيت من مصادر غير معروفة").
-          files: out/*.apk
+          body_path: out/release-notes.md
+          make_latest: true
+          files: |
+            out/*.apk
+            out/bundle.zip
+            out/version.json

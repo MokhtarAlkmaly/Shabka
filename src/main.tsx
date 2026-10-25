@@ -10,6 +10,10 @@ import "@fontsource/tajawal/latin-400.css";
 import "@fontsource/tajawal/latin-700.css";
 import "./index.css";
 import App from "./App";
+import { markAppReady } from "./lib/updates";
+
+// إبلاغ نظام التحديث أن النسخة الحالية تعمل (وإلا يرجع للنسخة السابقة تلقائياً)
+markAppReady();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
