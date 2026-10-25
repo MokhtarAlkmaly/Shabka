@@ -90,5 +90,6 @@ export function radioToTech(radio: string): Tech | undefined {
   return undefined;
 }
 
-/** صنعاء كموقع افتراضي */
-export const DEFAULT_CENTER: [number, number] = [15.3694, 44.191];
+/** تعز كموقع افتراضي (مركز المدينة) */
+export const DEFAULT_CENTER: [number, number] = [13.5789, 44.0214];
+export const DEFAULT_CITY = "تعز";

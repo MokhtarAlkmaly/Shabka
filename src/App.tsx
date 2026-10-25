@@ -4,6 +4,7 @@ import CoveragePanel from "./components/CoveragePanel";
 import SettingsModal from "./components/SettingsModal";
 import {
   DEFAULT_CENTER,
+  DEFAULT_CITY,
   OPERATORS,
   TECHS,
   TECH_INFO,
@@ -20,15 +21,19 @@ import {
   type Tower,
 } from "./lib/towers";
 import { useConnection } from "./hooks/useConnection";
+import { idbGet, idbSet } from "./lib/store";
+import { trimTileCache } from "./lib/tileCache";
 
 const LS_SOURCE = "ytc_source";
 const LS_KEY = "ytc_ocid_key";
+const IDB_CSV = "csv_towers";
+const IDB_CSV_INFO = "csv_info";
 
 const ENV_KEY = import.meta.env.VITE_OPENCELLID_KEY ?? "";
 
 function initialSource(): DataSource {
   const s = localStorage.getItem(LS_SOURCE) as DataSource | null;
-  if (s === "opencellid" || s === "simulated") return s;
+  if (s === "opencellid" || s === "simulated" || s === "csv") return s;
   return ENV_KEY ? "opencellid" : "simulated";
 }
 
@@ -66,6 +71,21 @@ export default function App() {
   const connection = useConnection();
   const manualPoint = useRef(false);
   const firstFix = useRef(true);
+
+  /* ---------------- استعادة البيانات المحفوظة (بدون إنترنت) ---------------- */
+  useEffect(() => {
+    trimTileCache().catch(() => {});
+    Promise.all([idbGet<Tower[]>(IDB_CSV), idbGet<string>(IDB_CSV_INFO)])
+      .then(([towers, info]) => {
+        if (towers && towers.length) {
+          setCsvTowers(towers);
+          setCsvInfo(info ?? `ملف محفوظ: ${towers.length.toLocaleString("ar")} برج.`);
+        } else {
+          setSource((s) => (s === "csv" ? "simulated" : s));
+        }
+      })
+      .catch(() => setSource((s) => (s === "csv" ? "simulated" : s)));
+  }, []);
 
   /* ---------------- تحديد الموقع ---------------- */
   const locate = useCallback(() => {
@@ -123,6 +143,10 @@ export default function App() {
   /* ---------------- جلب الأبراج ---------------- */
   useEffect(() => {
     if (source !== "opencellid" || !apiKey) return;
+    if (!navigator.onLine) {
+      setNotice({ text: "لا يوجد اتصال بالإنترنت. OpenCellID يحتاج إنترنت — استخدم ملف OpenCellID أو البيانات التقديرية.", type: "error" });
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     fetchOpenCellId(apiKey, fetchCenter)
@@ -142,7 +166,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [source, apiKey, fetchCenter]);
+  }, [source, apiKey, fetchCenter, connection.online]);
 
   const allTowers: Tower[] = useMemo(() => {
     if (source === "simulated") return generateSimulatedTowers(fetchCenter, 8);
@@ -211,6 +235,13 @@ export default function App() {
     return c;
   }, [allTowers]);
 
+  const goToDefaultCity = () => {
+    manualPoint.current = true;
+    setAnalysisPoint(DEFAULT_CENTER);
+    setFetchCenter(DEFAULT_CENTER);
+    setFlyTarget({ pos: DEFAULT_CENTER, zoom: 14, nonce: Date.now() });
+  };
+
   const useMyLocation = () => {
     if (userPos) {
       manualPoint.current = false;
@@ -255,6 +286,12 @@ export default function App() {
         </div>
       </header>
 
+      {!connection.online && (
+        <div className="z-[1000] bg-slate-700 px-3 py-1.5 text-center text-[11px] text-white sm:text-xs">
+          📴 أنت بدون إنترنت — تظهر الخرائط التي تصفحتها سابقاً فقط، والأبراج من البيانات التقديرية أو الملف المحفوظ.
+        </div>
+      )}
+
       {source === "simulated" && (
         <div className="z-[1000] bg-amber-50 px-3 py-1.5 text-center text-[11px] text-amber-800 sm:text-xs">
           ⚠️ تعرض الآن بيانات تقديرية للتجربة.{" "}
@@ -283,7 +320,13 @@ export default function App() {
             <div className="flex items-center justify-between rounded-2xl bg-white p-3 shadow-sm">
               <div>
                 <div className="text-xs text-slate-500">
-                  {manualPoint.current ? "📍 نقطة مختارة على الخريطة" : geoStatus === "ok" ? "📡 موقعك الحالي" : "📍 مركز الخريطة"}
+                  {point[0] === DEFAULT_CENTER[0] && point[1] === DEFAULT_CENTER[1]
+                    ? `🏙️ ${DEFAULT_CITY} (الموقع الافتراضي)`
+                    : manualPoint.current
+                      ? "📍 نقطة مختارة على الخريطة"
+                      : geoStatus === "ok"
+                        ? "📡 موقعك الحالي"
+                        : "📍 مركز الخريطة"}
                 </div>
                 <div dir="ltr" className="text-right font-mono text-sm font-semibold text-slate-700">
                   {point[0].toFixed(5)}, {point[1].toFixed(5)}
@@ -292,12 +335,20 @@ export default function App() {
                   <div className="text-[10px] text-slate-400">دقة الموقع ±{Math.round(accuracy)} م</div>
                 )}
               </div>
-              <button
-                onClick={useMyLocation}
-                className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow hover:bg-blue-700"
-              >
-                موقعي
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={goToDefaultCity}
+                  className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow hover:bg-emerald-700"
+                >
+                  {DEFAULT_CITY}
+                </button>
+                <button
+                  onClick={useMyLocation}
+                  className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow hover:bg-blue-700"
+                >
+                  موقعي
+                </button>
+              </div>
             </div>
 
             {/* الفلاتر */}
@@ -478,12 +529,15 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           onCsvFile={async (file) => {
             const towers = await parseCellCsv(file);
+            const info = `تم تحميل ${towers.length.toLocaleString("ar")} برج من الملف "${file.name}" (محفوظ للعمل بدون إنترنت).`;
             setCsvTowers(towers);
-            setCsvInfo(`تم تحميل ${towers.length.toLocaleString("ar")} برج من الملف "${file.name}".`);
+            setCsvInfo(info);
+            idbSet(IDB_CSV, towers).catch(() => {});
+            idbSet(IDB_CSV_INFO, info).catch(() => {});
           }}
           onApply={(src, key) => {
             setSource(src);
-            if (src !== "csv") localStorage.setItem(LS_SOURCE, src);
+            localStorage.setItem(LS_SOURCE, src);
             if (src === "opencellid") {
               setApiKey(key);
               localStorage.setItem(LS_KEY, key);
