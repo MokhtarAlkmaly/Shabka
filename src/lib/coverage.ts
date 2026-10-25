@@ -7,6 +7,7 @@ export interface TechCoverage {
   dbm: number | null;
   towers: number;
   nearest: number | null;
+  nearestTower: { tower: Tower; distance: number } | null;
 }
 
 export interface OperatorCoverage {
@@ -44,9 +45,13 @@ export function computeCoverage(point: LatLon, towers: Tower[]): OperatorCoverag
       let s2 = 0;
       let count = 0;
       let nearest: number | null = null;
+      let nearestTowerForTech: TechCoverage["nearestTower"] = null;
       opTowers.forEach((t, i) => {
         if (!t.techs.includes(tech)) return;
         const d = distances[i];
+        if (!nearestTowerForTech || d < nearestTowerForTech.distance) {
+          nearestTowerForTech = { tower: t, distance: d };
+        }
         const s = towerStrength(d, effectiveRange(t, tech));
         if (s > 0.02) count++;
         if (s > s1) {
@@ -64,6 +69,7 @@ export function computeCoverage(point: LatLon, towers: Tower[]): OperatorCoverag
         dbm: percent > 0 ? Math.round(info.minDbm + (info.maxDbm - info.minDbm) * combined) : null,
         towers: count,
         nearest,
+        nearestTower: nearestTowerForTech,
       };
     }
 
