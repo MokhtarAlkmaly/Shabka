@@ -61,6 +61,7 @@ export default function App() {
   const [csvTowers, setCsvTowers] = useState<Tower[]>([]);
   const [csvInfo, setCsvInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [notice, setNotice] = useState<{ text: string; type: "info" | "error" } | null>(null);
 
   const [enabledOps, setEnabledOps] = useState<Set<OperatorId>>(new Set(TAIZ_OPERATORS));
@@ -162,7 +163,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [source, apiKey, fetchCenter, connection.online]);
+  }, [source, apiKey, fetchCenter, connection.online, refreshNonce]);
 
   const allTowers: Tower[] = useMemo(() => {
     if (source === "simulated") return generateSimulatedTowers(fetchCenter, 8);
@@ -245,6 +246,30 @@ export default function App() {
       setFetchCenter(userPos);
       setFlyTarget({ pos: userPos, zoom: 15, nonce: Date.now() });
     } else locate();
+  };
+
+  const refreshCoverage = () => {
+    const target = analysisPoint ?? mapCenter;
+    setMapCenter(target);
+    setFetchCenter(target);
+    if (source === "opencellid") {
+      if (!apiKey) {
+        setNotice({ text: "أضف مفتاح OpenCellID من زر «مصدر البيانات» لتحديث الأبراج الحقيقية.", type: "error" });
+        return;
+      }
+      if (!connection.online) {
+        setNotice({ text: "تحديث OpenCellID يحتاج اتصالاً بالإنترنت. يمكنك تحليل ملف الأبراج المحفوظ أو البيانات التقديرية.", type: "error" });
+        return;
+      }
+      setRefreshNonce((n) => n + 1);
+      return;
+    }
+    setNotice({
+      text: source === "csv"
+        ? "تم تحديث التحليل من ملف الأبراج المحفوظ."
+        : "تم تحديث التغطية التقديرية لهذه النقطة؛ هذه البيانات ليست مواقع أبراج مؤكدة.",
+      type: "info",
+    });
   };
 
   return (
@@ -416,6 +441,8 @@ export default function App() {
             <CoveragePanel
               coverage={coverage}
               enabledOps={enabledOps}
+              loading={loading}
+              onRefresh={refreshCoverage}
               onFocusTower={(id, pos) => {
                 setSelectedTowerId(id);
                 setFlyTarget({ pos, zoom: 16, nonce: Date.now() });

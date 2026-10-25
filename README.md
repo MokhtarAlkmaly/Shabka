@@ -15,6 +15,8 @@
   | يمن موبايل Yemen Mobile | 421-03 |
   | واي Y Telecom | 421-04 |
 - 📶 نسبة تغطية كل تقنية (5G / 4G / 3G / 2G) لكل شبكة مع تقدير قوة الإشارة بـ dBm.
+- 🗼 زر «تحديث الأبراج» لإعادة تحميل بيانات المنطقة أو إعادة تحليل الملف/البيانات التقديرية.
+- 📡 فحص توفر 4G لكل مشغل، مع أقرب برج 4G ومصدر بياناته وبعده عن النقطة (تصنيف النطاق المحلي تقريبي، وليس حدوداً إدارية).
 - 👆 اضغط على أي نقطة في الخريطة لتحليل التغطية فيها.
 - 🔵 دوائر نطاق التغطية لكل تقنية.
 - 🛰️ خرائط: شوارع / فاتح / قمر صناعي.
@@ -163,4 +165,11 @@ MIT — بيانات الأبراج من OpenCellID مرخصة بـ CC BY-SA 4.0
 ```bash
 ./node_modules/.bin/esbuild tests/TaizCoverage.test.tsx --bundle --platform=node --format=esm --packages=external --jsx=automatic --outfile=node_modules/.cache/taiz-test.mjs
 node node_modules/.cache/taiz-test.mjs
+```
+
+اختبار لوحة التغطية وقسم «هل توجد 4G هنا؟» (بعد `npm ci`):
+
+```bash
+./node_modules/.bin/esbuild tests/CoveragePanel.test.tsx --bundle --platform=node --format=esm --packages=external --jsx=automatic --outfile=node_modules/.cache/covpanel-test.mjs
+node node_modules/.cache/covpanel-test.mjs
 ```
