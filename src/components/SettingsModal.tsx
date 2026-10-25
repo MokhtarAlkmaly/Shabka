@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DataSource } from "../lib/towers";
 import { clearTileCache, getTileCacheCount, tileCacheSupported } from "../lib/tileCache";
+import { APP_BUILD, isNative, shortBuild } from "../lib/updates";
 
 interface Props {
   open: boolean;
@@ -160,6 +161,10 @@ export default function SettingsModal({ open, source, apiKey, csvInfo, onClose, 
             <p className="mt-2 text-amber-700">المتصفح لا يدعم حفظ الخرائط محلياً.</p>
           )}
         </div>
+
+        <p className="mt-3 text-center text-[10px] text-slate-400" dir="rtl">
+          النسخة: <span dir="ltr" className="font-mono">{shortBuild(APP_BUILD)}</span> • {isNative ? "تطبيق أندرويد" : "نسخة الويب"} — التحديثات تُفحص تلقائياً
+        </p>
 
         <div className="mt-5 flex gap-2">
           <button

@@ -1,8 +1,7 @@
 name: Deploy to GitHub Pages
 
+# الموقع ينشر الآن على Vercel. هذا الملف للنشر اليدوي على GitHub Pages فقط (اختياري)
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

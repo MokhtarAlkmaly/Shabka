@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MapView, { type BaseLayer } from "./components/MapView";
 import CoveragePanel from "./components/CoveragePanel";
 import SettingsModal from "./components/SettingsModal";
+import UpdateBanner from "./components/UpdateBanner";
 import {
   DEFAULT_CENTER,
   DEFAULT_CITY,
@@ -47,7 +48,7 @@ export default function App() {
   const [userPos, setUserPos] = useState<LatLon | null>(null);
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [geoStatus, setGeoStatus] = useState<"pending" | "ok" | "denied" | "unsupported">("pending");
-  const [analysisPoint, setAnalysisPoint] = useState<LatLon | null>(null);
+  const [analysisPoint, setAnalysisPoint] = useState<LatLon | null>(DEFAULT_CENTER);
   const [mapCenter, setMapCenter] = useState<LatLon>(DEFAULT_CENTER);
   const [fetchCenter, setFetchCenter] = useState<LatLon>(DEFAULT_CENTER);
   const [flyTarget, setFlyTarget] = useState<{ pos: LatLon; zoom?: number; nonce: number } | null>(null);
@@ -69,8 +70,8 @@ export default function App() {
   const [panelExpanded, setPanelExpanded] = useState(true);
 
   const connection = useConnection();
-  const manualPoint = useRef(false);
-  const firstFix = useRef(true);
+  // التطبيق يفتح دائماً على تعز، ولا يتبع GPS إلا بعد الضغط على «موقعي»
+  const manualPoint = useRef(true);
 
   /* ---------------- استعادة البيانات المحفوظة (بدون إنترنت) ---------------- */
   useEffect(() => {
@@ -115,7 +116,6 @@ export default function App() {
   useEffect(() => {
     if (!("geolocation" in navigator)) {
       setGeoStatus("unsupported");
-      setAnalysisPoint(DEFAULT_CENTER);
       return;
     }
     const id = navigator.geolocation.watchPosition(
@@ -125,15 +125,9 @@ export default function App() {
         setAccuracy(p.coords.accuracy);
         setGeoStatus("ok");
         if (!manualPoint.current) setAnalysisPoint(pos);
-        if (firstFix.current) {
-          firstFix.current = false;
-          setFetchCenter(pos);
-          setFlyTarget({ pos, zoom: 15, nonce: Date.now() });
-        }
       },
       () => {
         setGeoStatus("denied");
-        setAnalysisPoint((a) => a ?? DEFAULT_CENTER);
       },
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
     );
@@ -246,6 +240,7 @@ export default function App() {
     if (userPos) {
       manualPoint.current = false;
       setAnalysisPoint(userPos);
+      setFetchCenter(userPos);
       setFlyTarget({ pos: userPos, zoom: 15, nonce: Date.now() });
     } else locate();
   };
@@ -285,6 +280,8 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <UpdateBanner />
 
       {!connection.online && (
         <div className="z-[1000] bg-slate-700 px-3 py-1.5 text-center text-[11px] text-white sm:text-xs">
