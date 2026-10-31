@@ -11,6 +11,10 @@ import "@fontsource/tajawal/latin-700.css";
 import "./index.css";
 import App from "./App";
 import { markAppReady } from "./lib/updates";
+import { initPwa } from "./lib/pwa";
+
+// تسجيل Service Worker ودعم التثبيت على الجوال (PWA)
+initPwa();
 
 // إبلاغ نظام التحديث أن النسخة الحالية تعمل (وإلا يرجع للنسخة السابقة تلقائياً)
 markAppReady();
