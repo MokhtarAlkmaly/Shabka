@@ -5,6 +5,7 @@ import TaizCoverage from "./components/TaizCoverage";
 import { TAIZ_OPERATORS } from "./data/taiz";
 import SettingsModal from "./components/SettingsModal";
 import UpdateBanner from "./components/UpdateBanner";
+import InstallPrompt, { InstallButton } from "./components/InstallPrompt";
 import {
   DEFAULT_CENTER,
   DEFAULT_CITY,
@@ -296,6 +297,7 @@ export default function App() {
           >
             {loading ? "جارٍ التحميل..." : SOURCE_LABEL[source]}
           </span>
+          <InstallButton />
           <button
             onClick={() => setSettingsOpen(true)}
             className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/20"
@@ -309,6 +311,7 @@ export default function App() {
       </header>
 
       <UpdateBanner />
+      <InstallPrompt />
 
       {!connection.online && (
         <div className="z-[1000] bg-slate-700 px-3 py-1.5 text-center text-[11px] text-white sm:text-xs">
